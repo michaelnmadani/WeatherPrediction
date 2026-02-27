@@ -1,0 +1,90 @@
+name: NSW Weather Data Collection
+
+on:
+  schedule:
+    # Phase 1: Capture forecast at 6:00 AM AEST (20:00 UTC previous day)
+    - cron: '0 20 * * *'
+    # Phase 2: Compare at 1:00 AM AEST (15:00 UTC previous day)
+    # Runs after midnight AEST to ensure the full day's data is available
+    - cron: '0 15 * * *'
+  workflow_dispatch:
+    inputs:
+      phase:
+        description: 'Which phase to run'
+        required: true
+        default: 'both'
+        type: choice
+        options:
+          - forecast
+          - compare
+          - both
+
+permissions:
+  contents: write
+
+jobs:
+  collect-forecast:
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      (github.event.inputs.phase == 'forecast' || github.event.inputs.phase == 'both')
+      || (github.event_name == 'schedule' && github.event.schedule == '0 20 * * *')
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install -r scripts/requirements.txt
+
+      - name: Collect forecasts
+        run: python scripts/collect_forecast.py
+
+      - name: Commit and push forecast data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/forecasts/
+          if git diff --staged --quiet; then
+            echo "No new forecast data to commit"
+          else
+            git commit -m "data: add forecast for $(date -u +%Y-%m-%d) [automated]"
+            git push
+          fi
+
+  collect-actual-and-compare:
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      (github.event.inputs.phase == 'compare' || github.event.inputs.phase == 'both')
+      || (github.event_name == 'schedule' && github.event.schedule == '0 15 * * *')
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install -r scripts/requirements.txt
+
+      - name: Collect actuals and compare
+        run: python scripts/collect_actual_and_compare.py
+
+      - name: Commit and push results
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/actuals/ data/results/
+          if git diff --staged --quiet; then
+            echo "No new result data to commit"
+          else
+            git commit -m "data: add results for $(TZ=Australia/Sydney date -d 'yesterday' +%Y-%m-%d) [automated]"
+            git push
+          fi

@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NSW Weather Forecast Accuracy Tracker</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <header>
+        <h1>NSW Weather Forecast Accuracy</h1>
+        <p class="subtitle">Daily comparison of forecast predictions vs actual weather across New South Wales</p>
+    </header>
+
+    <main>
+        <section id="loading" class="loading">
+            <div class="spinner"></div>
+            <p>Loading weather data...</p>
+        </section>
+
+        <section id="no-data" class="no-data" hidden>
+            <h2>No Data Yet</h2>
+            <p>Weather data collection has not started yet. The first results will appear after the automated daily collection runs.</p>
+            <p>Forecasts are captured at 6:00 AM AEST and compared to actuals after midnight AEST.</p>
+        </section>
+
+        <section id="dashboard" hidden>
+            <!-- Overall Score -->
+            <div class="score-card">
+                <div class="score-circle">
+                    <span id="overall-score">--</span>
+                    <span class="score-label">%</span>
+                </div>
+                <div class="score-info">
+                    <h2>Overall Accuracy</h2>
+                    <p id="score-date">--</p>
+                    <p id="score-stddev" class="meta">Avg Std Dev: --</p>
+                </div>
+            </div>
+
+            <!-- Summary Table -->
+            <div class="card">
+                <h2>Accuracy Summary</h2>
+                <p id="summary-date" class="meta"></p>
+                <div class="table-wrapper">
+                    <table id="summary-table">
+                        <thead>
+                            <tr>
+                                <th>Metric</th>
+                                <th>Exact Match</th>
+                                <th>Near</th>
+                                <th>Wide</th>
+                                <th>Mean Diff</th>
+                                <th>Std Dev</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Region Details -->
+            <div class="card">
+                <h2>Region Breakdown</h2>
+                <div class="date-selector">
+                    <label for="date-select">Date: </label>
+                    <select id="date-select"></select>
+                </div>
+                <div class="table-wrapper">
+                    <table id="region-table">
+                        <thead>
+                            <tr>
+                                <th>Region</th>
+                                <th>High °C<br><span class="sub">FC / Act / Diff</span></th>
+                                <th>Low °C<br><span class="sub">FC / Act / Diff</span></th>
+                                <th>Wind km/h<br><span class="sub">FC / Act / Diff</span></th>
+                                <th>Humidity %<br><span class="sub">FC / Act / Diff</span></th>
+                                <th>Rain mm<br><span class="sub">FC / Act / Diff</span></th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Historical Trend -->
+            <div class="card">
+                <h2>Historical Trend</h2>
+                <div class="table-wrapper">
+                    <table id="history-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Score</th>
+                                <th>High Temp</th>
+                                <th>Low Temp</th>
+                                <th>Wind</th>
+                                <th>Humidity</th>
+                                <th>Rain</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>Data sourced from <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo API</a>.
+        Updated daily at midnight AEST. 20 NSW regions tracked.</p>
+        <p>Forecast captured at 6 AM AEST, actuals collected after midnight. Hosted free on GitHub Pages.</p>
+    </footer>
+
+    <script src="js/app.js"></script>
+</body>
+</html>
