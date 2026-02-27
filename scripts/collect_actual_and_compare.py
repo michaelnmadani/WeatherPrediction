@@ -3,6 +3,9 @@
 Phase 2: Collect actual weather for the previous day and compare to forecast.
 Runs shortly after midnight AEST to get yesterday's actual weather.
 Loads the corresponding forecast, computes accuracy, and saves results.
+Also compares against a "persistence baseline" — using the day before yesterday's
+actual weather as a naive prediction for yesterday. This shows how much value
+the forecast adds over simply assuming "tomorrow = today".
 Also rebuilds the summary JSON used by the frontend.
 """
 
@@ -177,12 +180,17 @@ def rebuild_summary(results_dir):
         filepath = os.path.join(results_dir, filename)
         with open(filepath) as f:
             result = json.load(f)
-        all_results.append({
+        entry = {
             "date": result["date"],
             "overall_score": result["accuracy"]["overall_score"],
             "avg_std_dev": result["accuracy"]["avg_std_dev"],
             "summary": result["accuracy"]["summary"],
-        })
+        }
+        if "baseline_accuracy" in result:
+            entry["baseline_score"] = result["baseline_accuracy"]["overall_score"]
+            entry["baseline_summary"] = result["baseline_accuracy"]["summary"]
+            entry["forecast_skill"] = result.get("forecast_skill", 0)
+        all_results.append(entry)
 
     # Sort by date descending (most recent first)
     all_results.sort(key=lambda x: x["date"], reverse=True)
@@ -249,32 +257,101 @@ def main():
         json.dump(actuals_output, f, indent=2)
     print(f"\nSaved {len(actuals)} actuals to {actuals_path}")
 
-    # Compute accuracy
-    print("\nComputing accuracy...")
+    # Collect day-before-yesterday actuals for persistence baseline
+    # "Persistence forecast" = assume yesterday's weather repeats today
+    day_before = (now_aest - timedelta(days=2)).strftime("%Y-%m-%d")
+    day_before_actuals_path = os.path.join(actuals_dir, f"{day_before}.json")
+    day_before_actuals = None
+
+    # Try loading from previously saved file first
+    if os.path.exists(day_before_actuals_path):
+        print(f"\nLoading day-before-yesterday actuals from {day_before_actuals_path}")
+        with open(day_before_actuals_path) as f:
+            day_before_data = json.load(f)
+        day_before_actuals = day_before_data.get("regions", [])
+    else:
+        # Fetch from API if not available locally
+        print(f"\nCollecting day-before-yesterday actuals ({day_before}) for baseline...")
+        day_before_actuals = []
+        for region in NSW_REGIONS:
+            try:
+                actual = fetch_actual(region, day_before)
+                day_before_actuals.append(actual)
+                print(f"  OK: {region['name']} - High: {actual['high_temp']}°C")
+            except Exception as e:
+                print(f"  FAIL: {region['name']} - {e}", file=sys.stderr)
+            time.sleep(0.5)
+
+        # Save the day-before actuals too
+        if day_before_actuals:
+            day_before_output = {
+                "date": day_before,
+                "collected_at": datetime.now(timezone.utc).isoformat(),
+                "type": "actual",
+                "region_count": len(day_before_actuals),
+                "regions": day_before_actuals,
+            }
+            with open(day_before_actuals_path, "w") as f:
+                json.dump(day_before_output, f, indent=2)
+            print(f"Saved {len(day_before_actuals)} day-before actuals to {day_before_actuals_path}")
+
+    # Compute forecast accuracy
+    print("\nComputing forecast accuracy...")
     accuracy = compute_accuracy(forecast_data["regions"], actuals)
 
-    # Print summary
-    print("\n=== ACCURACY SUMMARY ===")
+    # Compute persistence baseline accuracy (day-before-yesterday actuals vs yesterday actuals)
+    baseline_accuracy = None
+    if day_before_actuals:
+        print("Computing persistence baseline accuracy (previous day actuals as prediction)...")
+        baseline_accuracy = compute_accuracy(day_before_actuals, actuals)
+
+    # Print forecast summary
+    labels = {
+        "high_temp": "High Temp",
+        "low_temp": "Low Temp",
+        "wind_speed": "Wind Speed",
+        "humidity": "Humidity",
+        "rain": "Rain",
+    }
+
+    print("\n=== FORECAST ACCURACY ===")
     for metric in METRICS:
         s = accuracy["summary"].get(metric)
         if not s:
             print(f"  {metric}: No data")
             continue
-        labels = {
-            "high_temp": "High Temp",
-            "low_temp": "Low Temp",
-            "wind_speed": "Wind Speed",
-            "humidity": "Humidity",
-            "rain": "Rain",
-        }
         label = labels.get(metric, metric)
         print(f"  {label}: {s['exact_pct']}% Exact | "
               f"{s['near_pct']}% within {s['near_threshold']}{s['unit']} | "
               f"{s['wide_pct']}% within {s['wide_threshold']}{s['unit']} | "
               f"StdDev: {s['std_dev']}{s['unit']}")
+    print(f"\n  Forecast Score: {accuracy['overall_score']}%")
 
-    print(f"\n  Overall Score: {accuracy['overall_score']}%")
-    print(f"  Average Std Dev: {accuracy['avg_std_dev']}")
+    # Print baseline summary
+    if baseline_accuracy:
+        print("\n=== PERSISTENCE BASELINE (previous day's actual as prediction) ===")
+        for metric in METRICS:
+            s = baseline_accuracy["summary"].get(metric)
+            if not s:
+                print(f"  {metric}: No data")
+                continue
+            label = labels.get(metric, metric)
+            print(f"  {label}: {s['exact_pct']}% Exact | "
+                  f"{s['near_pct']}% within {s['near_threshold']}{s['unit']} | "
+                  f"{s['wide_pct']}% within {s['wide_threshold']}{s['unit']} | "
+                  f"StdDev: {s['std_dev']}{s['unit']}")
+        print(f"\n  Baseline Score: {baseline_accuracy['overall_score']}%")
+
+        # Print skill comparison
+        skill = round(accuracy["overall_score"] - baseline_accuracy["overall_score"], 1)
+        print(f"\n=== FORECAST SKILL ===")
+        print(f"  Forecast: {accuracy['overall_score']}% | Baseline: {baseline_accuracy['overall_score']}% | Skill: {'+' if skill >= 0 else ''}{skill}%")
+        if skill > 0:
+            print(f"  Forecast beats naive persistence by {skill} percentage points")
+        elif skill < 0:
+            print(f"  Forecast underperforms naive persistence by {abs(skill)} percentage points")
+        else:
+            print(f"  Forecast matches naive persistence")
 
     # Save result
     results_dir = os.path.join(repo_root, "data", "results")
@@ -285,6 +362,11 @@ def main():
         "forecast_collected_at": forecast_data.get("collected_at"),
         "accuracy": accuracy,
     }
+    if baseline_accuracy:
+        result["baseline_accuracy"] = baseline_accuracy
+        result["forecast_skill"] = round(
+            accuracy["overall_score"] - baseline_accuracy["overall_score"], 1
+        )
     result_path = os.path.join(results_dir, f"{yesterday}.json")
     with open(result_path, "w") as f:
         json.dump(result, f, indent=2)
