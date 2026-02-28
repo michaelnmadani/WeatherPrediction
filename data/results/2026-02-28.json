@@ -1,0 +1,17 @@
+{
+  "date": "2026-02-28",
+  "processed_at": "2026-02-28T15:49:57.184863+00:00",
+  "forecast_collected_at": "2026-02-28T03:36:48.313410+00:00",
+  "accuracy": {
+    "summary": {
+      "high_temp": null,
+      "low_temp": null,
+      "wind_speed": null,
+      "humidity": null,
+      "rain": null
+    },
+    "overall_score": 0,
+    "avg_std_dev": 0,
+    "comparisons": []
+  }
+}

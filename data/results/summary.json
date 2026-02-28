@@ -1,5 +1,18 @@
 {
-  "last_updated": null,
-  "total_days": 0,
-  "results": []
+  "last_updated": "2026-02-28T15:49:57.185202+00:00",
+  "total_days": 1,
+  "results": [
+    {
+      "date": "2026-02-28",
+      "overall_score": 0,
+      "avg_std_dev": 0,
+      "summary": {
+        "high_temp": null,
+        "low_temp": null,
+        "wind_speed": null,
+        "humidity": null,
+        "rain": null
+      }
+    }
+  ]
 }
