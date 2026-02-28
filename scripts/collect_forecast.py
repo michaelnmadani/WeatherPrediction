@@ -18,6 +18,21 @@ from config import NSW_REGIONS, FORECAST_API_URL, DAILY_VARIABLES, HOURLY_VARIAB
 AEST = timezone(timedelta(hours=10))
 
 
+def fetch_with_retry(url, params, retries=3, base_timeout=30):
+    """Fetch URL with exponential backoff retries on timeout/connection errors."""
+    for attempt in range(retries):
+        try:
+            resp = requests.get(url, params=params, timeout=base_timeout)
+            resp.raise_for_status()
+            return resp
+        except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as e:
+            if attempt == retries - 1:
+                raise
+            wait = 2 ** (attempt + 1)
+            print(f"    Retry {attempt + 1}/{retries - 1} after {wait}s ({e})")
+            time.sleep(wait)
+
+
 def fetch_forecast(region, target_date):
     """Fetch today's forecast for a single region from Open-Meteo."""
     params = {
@@ -33,8 +48,7 @@ def fetch_forecast(region, target_date):
         "temperature_unit": "celsius",
     }
 
-    resp = requests.get(FORECAST_API_URL, params=params, timeout=30)
-    resp.raise_for_status()
+    resp = fetch_with_retry(FORECAST_API_URL, params)
     data = resp.json()
 
     daily = data.get("daily", {})
@@ -96,8 +110,16 @@ def main():
     with open(output_path, "w") as f:
         json.dump(output, f, indent=2)
 
-    print(f"\nSaved {len(forecasts)} forecasts to {output_path}")
-    return 0 if len(forecasts) == len(NSW_REGIONS) else 1
+    total = len(NSW_REGIONS)
+    collected = len(forecasts)
+    print(f"\nSaved {collected}/{total} forecasts to {output_path}")
+
+    if collected == 0:
+        print("ERROR: No forecasts collected at all", file=sys.stderr)
+        return 1
+    if collected < total:
+        print(f"WARNING: {total - collected} regions failed (partial collection)")
+    return 0
 
 
 if __name__ == "__main__":
