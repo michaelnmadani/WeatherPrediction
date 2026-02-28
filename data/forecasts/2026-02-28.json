@@ -1,6 +1,6 @@
 {
   "date": "2026-02-28",
-  "collected_at": "2026-02-28T03:21:58.406381+00:00",
+  "collected_at": "2026-02-28T03:36:48.313410+00:00",
   "type": "forecast",
   "region_count": 18,
   "regions": [
@@ -71,15 +71,15 @@
       "rain": 0.4
     },
     {
-      "region": "Broken Hill",
-      "lat": -31.95,
-      "lon": 141.45,
+      "region": "Dubbo",
+      "lat": -32.24,
+      "lon": 148.6,
       "date": "2026-02-28",
-      "high_temp": 29.3,
-      "low_temp": 23.1,
-      "wind_speed": 26.8,
-      "humidity": 76.1,
-      "rain": 4.2
+      "high_temp": 32.5,
+      "low_temp": 21.0,
+      "wind_speed": 26.7,
+      "humidity": 54.5,
+      "rain": 0.0
     },
     {
       "region": "Tamworth",
@@ -148,17 +148,6 @@
       "rain": 0.0
     },
     {
-      "region": "Bathurst",
-      "lat": -33.42,
-      "lon": 149.58,
-      "date": "2026-02-28",
-      "high_temp": 28.2,
-      "low_temp": 17.4,
-      "wind_speed": 22.0,
-      "humidity": 64.5,
-      "rain": 0.0
-    },
-    {
       "region": "Griffith",
       "lat": -34.29,
       "lon": 146.04,
@@ -167,6 +156,17 @@
       "low_temp": 21.7,
       "wind_speed": 28.0,
       "humidity": 46.2,
+      "rain": 0.0
+    },
+    {
+      "region": "Armidale",
+      "lat": -30.51,
+      "lon": 151.67,
+      "date": "2026-02-28",
+      "high_temp": 26.5,
+      "low_temp": 15.7,
+      "wind_speed": 32.8,
+      "humidity": 71.3,
       "rain": 0.0
     },
     {
