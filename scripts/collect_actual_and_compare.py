@@ -26,6 +26,21 @@ AEST = timezone(timedelta(hours=10))
 METRICS = ["high_temp", "low_temp", "wind_speed", "humidity", "rain"]
 
 
+def fetch_with_retry(url, params, retries=3, base_timeout=30):
+    """Fetch URL with exponential backoff retries on timeout/connection errors."""
+    for attempt in range(retries):
+        try:
+            resp = requests.get(url, params=params, timeout=base_timeout)
+            resp.raise_for_status()
+            return resp
+        except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as e:
+            if attempt == retries - 1:
+                raise
+            wait = 2 ** (attempt + 1)
+            print(f"    Retry {attempt + 1}/{retries - 1} after {wait}s ({e})")
+            time.sleep(wait)
+
+
 def fetch_actual(region, target_date):
     """Fetch actual weather for a completed day using Open-Meteo forecast API with past_days.
 
@@ -48,8 +63,7 @@ def fetch_actual(region, target_date):
         "temperature_unit": "celsius",
     }
 
-    resp = requests.get(FORECAST_API_URL, params=params, timeout=30)
-    resp.raise_for_status()
+    resp = fetch_with_retry(FORECAST_API_URL, params)
     data = resp.json()
 
     daily = data.get("daily", {})
@@ -222,9 +236,9 @@ def main():
     # Load forecast for yesterday
     forecast_path = os.path.join(repo_root, "data", "forecasts", f"{yesterday}.json")
     if not os.path.exists(forecast_path):
-        print(f"ERROR: No forecast file found for {yesterday} at {forecast_path}")
-        print("Cannot compare without a forecast. Exiting.")
-        return 1
+        print(f"WARNING: No forecast file found for {yesterday} at {forecast_path}")
+        print("This is expected on the first run. Skipping comparison.")
+        return 0
 
     with open(forecast_path) as f:
         forecast_data = json.load(f)
